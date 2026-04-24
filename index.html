@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>iamm app - Pengolahan Citra Digital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="bg-[#0A0A0F] text-[#E8E8F0] font-['DM_Sans']">
+
+    <div id="toast">✓ Berhasil!</div>
+
+    <header class="header-main">
+        <div class="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="mono text-lg font-bold tracking-wider">iamm<span style="color: var(--accent)">App</span>
+                </div>
+                <span class="badge badge-green">Pengolahan Citra</span>
+                <span class="text-xs" style="color: var(--text-muted)">Pengolahan Citra UTP 2026</span>
+            </div>
+            <div class="flex items-center gap-3 text-[#6B6B8A] text-xs">
+                <div id="author-info" class="mono text-xs">Memuat Identitas...</div>
+                <button onclick="downloadResult()" class="btn-secondary text-xs px-3 py-1.5">⬇ Export</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex" style="height: calc(100vh - 53px);">
+        <div class="sidebar-left p-3 overflow-y-auto">
+            <div id="drop-zone" class="p-4 text-center cursor-pointer mb-4"
+                onclick="document.getElementById('file-input').click()">
+                <input type="file" id="file-input" accept="image/*" class="hidden" onchange="loadImage(event)">
+                <div style="font-size: 22px; margin-bottom: 6px;">📁</div>
+                <p class="text-[10px]" style="color: var(--text-muted);">Drop image or click</p>
+            </div>
+
+            <div class="section-label">IDENTITAS</div>
+            <div id="display-nama"
+                class="p-2 mb-1 text-xs border border-[#2A2A3A] rounded bg-[#111118] text-[#00FF88] mono"></div>
+            <div id="display-npm"
+                class="p-2 mb-4 text-xs border border-[#2A2A3A] rounded bg-[#111118] text-[#00FF88] mono"></div>
+
+            <div class="section-label">JENIS CITRA</div>
+            <button class="tool-btn" id="btn-grayscale" onclick="setTool('grayscale')"><span
+                    class="icon">◐</span>Grayscale</button>
+            <button class="tool-btn" id="btn-binary" onclick="setTool('binary')"><span
+                    class="icon">◑</span>Biner</button>
+
+            <div class="section-label mt-3">OPERASI PIKSEL</div>
+            <button class="tool-btn" id="btn-brightness" onclick="setTool('brightness')"><span
+                    class="icon">☀</span>Brightness</button>
+            <button class="tool-btn" id="btn-contrast" onclick="setTool('contrast')"><span
+                    class="icon">◧</span>Contrast</button>
+
+            <div class="section-label mt-3">FILTER</div>
+            <button class="tool-btn" id="btn-filter-median" onclick="setTool('filter-median')"><span
+                    class="icon">⊟</span>Filter Median</button>
+
+            <div class="section-label mt-3">SEGMENTASI</div>
+            <button class="tool-btn" id="btn-canny" onclick="setTool('canny')"><span class="icon">⋉</span>Deteksi
+                Tepi</button>
+
+            <button onclick="resetApp()" class="btn-secondary w-full text-[10px] mt-6">↺ Reset Proses</button>
+        </div>
+
+        <div class="flex-1 flex flex-col min-w-0">
+            <div class="flex items-center gap-2 px-4 py-2 border-b border-[#2A2A3A] bg-[#111118]">
+                <button id="tab-original" class="tab-btn active" onclick="showTab('original')">Original</button>
+                <button id="tab-result" class="tab-btn" onclick="showTab('result')">Hasil</button>
+                <button id="tab-compare" class="tab-btn" onclick="showTab('compare')">Compare ↔</button>
+                <div class="ml-auto mono text-[10px] text-[#444]" id="img-size-label"></div>
+            </div>
+
+            <div id="canvas-wrap" class="flex-1 flex items-center justify-center relative overflow-hidden">
+                <div id="empty-state" class="text-center">
+                    <p class="mono text-sm" style="color: #444;">Upload gambar untuk memulai</p>
+                </div>
+
+                <canvas id="original-canvas"
+                    style="display:none; max-width:90%; max-height:90%; border-radius: 4px;"></canvas>
+                <canvas id="result-canvas"
+                    style="display:none; max-width:90%; max-height:90%; border-radius: 4px;"></canvas>
+
+                <div id="compare-wrap" style="display:none; max-width:90%; max-height:90%; position: relative;">
+                    <canvas id="base-compare-canvas"></canvas>
+                    <canvas id="overlay-canvas"></canvas>
+                    <div id="compare-line"></div>
+                    <div id="compare-handle">↔</div>
+                </div>
+
+                <div id="watermark"
+                    class="absolute bottom-3 right-4 mono text-[10px] text-[#00FF8833] pointer-events-none hidden">
+                    <span id="watermark-text">iamm app</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-right overflow-y-auto p-4">
+            <div class="section-label mt-0">TOOL AKTIF</div>
+            <div id="tool-header" class="mb-6 bg-[#111118] p-3 rounded-lg border border-[#2A2A3A]">
+                <div id="tool-title" class="text-sm font-bold text-[#00FF88] mb-1">Pilih Fitur</div>
+                <div id="tool-desc" class="text-[11px] leading-relaxed text-[#6B6B8A]">Deskripsi fitur akan muncul di
+                    sini.</div>
+            </div>
+
+            <div class="slider-row">
+                <span class="slider-label">Parameter</span>
+                <input type="range" min="0" max="255" value="128" id="param-slider"
+                    oninput="document.getElementById('param-val').textContent=this.value">
+                <span id="param-val" class="slider-val">128</span>
+            </div>
+
+            <button onclick="processImage()" class="btn-apply mt-4">APPLY PROSES</button>
+
+            <div class="section-label mt-8">INFO CITRA</div>
+            <div class="info-container">
+                <div class="info-row"><span class="info-key">Ukuran</span><span id="info-size" class="info-val">-</span>
+                </div>
+                <div class="info-row"><span class="info-key">Tool Terakhir</span><span id="info-last"
+                        class="info-val text-accent">-</span></div>
+                <div class="info-row"><span class="info-key">History</span><span id="info-hist" class="info-val">0
+                        langkah</span></div>
+            </div>
+
+            <div class="section-label mt-8">LOG PROSES</div>
+            <div id="process-log" class="text-[10px] mono text-[#444] leading-relaxed max-h-[150px] overflow-y-auto">
+                Belum ada aktivitas.</div>
+        </div>
+    </div>
+
+    <script>
+        const MY_NAME = "Ilham Rizki S";
+        const MY_NPM = "065123188";
+    
+
+        let originalImgObj = null;
+        let resultImgObj = null;
+        let historyCount = 0;
+        let currentTool = "";
+
+        const descriptions = {
+            'grayscale': 'Menyederhanakan citra RGB menjadi satu kanal intensitas cahaya (Luminance).',
+            'binary': 'Mengubah citra menjadi hitam-putih murni berdasarkan nilai ambang batas.',
+            'brightness': 'Operasi titik untuk menyesuaikan tingkat kecerahan piksel citra.',
+            'contrast': 'Mengatur kontras citra dengan mengalikan nilai piksel (alpha scaling) untuk memperlebar rentang intensitas.',
+            'filter-median': 'Filter untuk menghilangkan noise bintik tanpa merusak ketajaman garis tepi.',
+            'canny': 'Algoritma deteksi tepi multi-tahap untuk menemukan struktur luar objek.'
+        };
+
+        // Inisialisasi identitas saat halaman dimuat
+        window.onload = function () {
+            document.getElementById('display-nama').textContent = MY_NAME;
+            document.getElementById('display-npm').textContent = MY_NPM;
+            document.getElementById('author-info').textContent = `${MY_NAME} | ${MY_NPM}`;
+            document.getElementById('watermark-text').textContent = `iamm app | ${MY_NAME} | ${MY_NPM}`;
+        };
+
+        function loadImage(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImgObj = img;
+                    const oc = document.getElementById('original-canvas');
+                    oc.width = img.width; oc.height = img.height;
+                    oc.getContext('2d').drawImage(img, 0, 0);
+                    document.getElementById('info-size').textContent = img.width + ' × ' + img.height;
+                    document.getElementById('img-size-label').textContent = img.width + '×' + img.height;
+                    document.getElementById('empty-state').style.display = 'none';
+                    document.getElementById('watermark').style.display = 'block';
+                    showTab('original');
+                    showToast("Gambar dimuat");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + tool).classList.add('active');
+            document.getElementById('tool-title').textContent = tool.replace('-', ' ').toUpperCase();
+            document.getElementById('tool-desc').textContent = descriptions[tool];
+        }
+
+        async function processImage() {
+            if (!originalImgObj || !currentTool) return showToast("Pilih gambar & fitur!");
+            const val = document.getElementById('param-slider').value;
+            const canvas = document.getElementById('original-canvas');
+            const base64 = canvas.toDataURL('image/png');
+
+            const res = await fetch('/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64, feature: currentTool, value: val })
+            });
+            const data = await res.json();
+
+            const resImg = new Image();
+            resImg.onload = () => {
+                resultImgObj = resImg;
+                const rc = document.getElementById('result-canvas');
+                rc.width = resImg.width; rc.height = resImg.height;
+                rc.getContext('2d').drawImage(resImg, 0, 0);
+                historyCount++;
+                document.getElementById('info-hist').textContent = `${historyCount} langkah`;
+                document.getElementById('info-last').textContent = currentTool.toUpperCase();
+                addLog(currentTool);
+                showTab('result');
+                showToast("Proses Berhasil");
+            };
+            resImg.src = data.result;
+        }
+
+        function showTab(tab) {
+            document.getElementById('original-canvas').style.display = 'none';
+            document.getElementById('result-canvas').style.display = 'none';
+            document.getElementById('compare-wrap').style.display = 'none';
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            if (tab === 'original') document.getElementById('original-canvas').style.display = 'block';
+            else if (tab === 'result') document.getElementById('result-canvas').style.display = 'block';
+            else if (tab === 'compare') { setupCompare(); document.getElementById('compare-wrap').style.display = 'block'; }
+        }
+
+        function setupCompare() {
+            if (!originalImgObj || !resultImgObj) return;
+            const bc = document.getElementById('base-compare-canvas');
+            const oc = document.getElementById('overlay-canvas');
+            bc.width = originalImgObj.width; bc.height = originalImgObj.height;
+            oc.width = originalImgObj.width; oc.height = originalImgObj.height;
+            bc.getContext('2d').drawImage(originalImgObj, 0, 0);
+            oc.getContext('2d').drawImage(resultImgObj, 0, 0);
+            setComparePos(50);
+        }
+
+        let isDragging = false;
+        document.getElementById('compare-wrap').onmousedown = () => isDragging = true;
+        document.onmouseup = () => isDragging = false;
+        document.onmousemove = e => {
+            if (!isDragging) return;
+            const rect = document.getElementById('compare-wrap').getBoundingClientRect();
+            const pct = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
+            setComparePos(pct);
+        };
+
+        function setComparePos(pct) {
+            document.getElementById('compare-line').style.left = pct + '%';
+            document.getElementById('compare-handle').style.left = pct + '%';
+            document.getElementById('overlay-canvas').style.clipPath = `inset(0 0 0 ${pct}%)`;
+        }
+
+        function resetApp() {
+            resultImgObj = null;
+            document.getElementById('result-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
+            document.getElementById('process-log').innerHTML = "Belum ada aktivitas.";
+            historyCount = 0;
+            document.getElementById('info-hist').textContent = "0 langkah";
+            document.getElementById('info-last').textContent = "-";
+            showTab('original');
+            showToast("Reset!");
+        }
+
+        function addLog(msg) {
+            const log = document.getElementById('process-log');
+            if (log.textContent.includes("Belum")) log.innerHTML = "";
+            log.innerHTML = `<div>> ${new Date().toLocaleTimeString()} - ${msg} applied</div>` + log.innerHTML;
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function downloadResult() {
+            const link = document.createElement('a');
+            link.download = 'utp_citra.png';
+            link.href = document.getElementById('result-canvas').toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+
+</html>
